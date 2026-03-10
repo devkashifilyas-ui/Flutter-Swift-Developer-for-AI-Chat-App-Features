@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice AI Mobile Architecture — Flutter + Swift</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b10;
+    --surface: #0d1520;
+    --surface2: #111d2e;
+    --border: #1a2d42;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --red: #ef4444;
+    --text: #e2eaf4;
+    --muted: #5a7a96;
+    --glow: 0 0 20px rgba(0,212,255,0.15);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+    animation: gridPulse 8s ease-in-out infinite;
+  }
+  @keyframes gridPulse {
+    0%,100% { opacity: 0.6; } 50% { opacity: 1; }
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: rgba(7,11,16,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-brand {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nav-brand .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent3);
+    box-shadow: 0 0 8px var(--accent3);
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none;
+    padding: 6px 12px; border-radius: 4px;
+    font-size: 11px; letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); background: rgba(0,212,255,0.06); }
+
+  /* HERO */
+  .hero {
+    position: relative; z-index: 1;
+    padding: 120px 32px 60px;
+    max-width: 1200px; margin: 0 auto;
+    text-align: center;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border);
+    padding: 6px 16px; border-radius: 100px;
+    color: var(--muted); font-size: 11px;
+    margin-bottom: 24px;
+    background: var(--surface);
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800; line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    color: var(--muted); font-size: 14px;
+    max-width: 580px; margin: 0 auto 40px;
+  }
+  .hero-badges { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .badge {
+    padding: 6px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .badge-blue { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: var(--accent); }
+  .badge-purple { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; }
+  .badge-green { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--accent3); }
+  .badge-yellow { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: var(--warn); }
+
+  /* LAYOUT */
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+  .section { padding: 48px 0; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px;
+  }
+  .section-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.1em;
+    border: 1px solid rgba(0,212,255,0.3);
+    padding: 3px 10px; border-radius: 3px;
+    background: rgba(0,212,255,0.05);
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: #fff;
+  }
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+    margin: 48px 0;
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    transition: border-color 0.3s;
+  }
+  .card:hover { border-color: rgba(0,212,255,0.25); }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--accent); margin-bottom: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  /* SYSTEM ARCHITECTURE DIAGRAM */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-diagram::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    animation: scanLine 3s ease-in-out infinite;
+  }
+  @keyframes scanLine { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  .arch-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .arch-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    flex: 1; min-width: 140px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .arch-box:hover {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+    transform: translateY(-2px);
+  }
+  .arch-box .box-label {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .arch-box .box-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 13px;
+    color: #fff;
+  }
+  .arch-box.accent-blue { border-left: 3px solid var(--accent); }
+  .arch-box.accent-purple { border-left: 3px solid var(--accent2); }
+  .arch-box.accent-green { border-left: 3px solid var(--accent3); }
+  .arch-box.accent-yellow { border-left: 3px solid var(--warn); }
+
+  .arch-arrow {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    color: var(--muted); font-size: 10px;
+    min-width: 80px; text-align: center;
+  }
+  .arch-arrow .arrow-line {
+    display: flex; align-items: center; gap: 4px; width: 100%;
+  }
+  .arch-arrow .line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), var(--accent), var(--border));
+    position: relative;
+  }
+  .arch-arrow .arrowhead { color: var(--accent); font-size: 14px; }
+  .msg-pill {
+    display: inline-block;
+    font-size: 9px; padding: 2px 7px;
+    border-radius: 100px;
+    margin: 2px;
+  }
+  .msg-audio { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .msg-speech { background: rgba(16,185,129,0.12); color: var(--accent3); border: 1px solid rgba(16,185,129,0.2); }
+  .msg-barge { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+  .msg-text { background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+
+  /* PIPELINE TIMELINE */
+  .pipeline {
+    display: flex; align-items: stretch;
+    gap: 0; overflow-x: auto;
+    padding: 8px 0 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .pipeline-step {
+    flex: 1; min-width: 110px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-right: none;
+    padding: 16px 14px;
+    position: relative;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .pipeline-step:first-child { border-radius: 6px 0 0 6px; }
+  .pipeline-step:last-child { border-right: 1px solid var(--border); border-radius: 0 6px 6px 0; }
+  .pipeline-step:hover { background: rgba(0,212,255,0.05); z-index: 1; }
+  .pipeline-step::after {
+    content: '▶';
+    position: absolute; right: -10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted); font-size: 10px;
+    z-index: 2;
+  }
+  .pipeline-step:last-child::after { display: none; }
+  .pipeline-step .step-num {
+    font-size: 10px; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .pipeline-step .step-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px; font-weight: 700;
+    color: #fff; margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .pipeline-step .step-detail { font-size: 10px; color: var(--muted); }
+  .pipeline-step .step-timing {
+    margin-top: 8px;
+    font-size: 10px; color: var(--warn);
+    font-weight: 600;
+  }
+
+  /* BARGE-IN VISUALIZER */
+  .barge-demo {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .waveform {
+    display: flex; align-items: center;
+    height: 60px; gap: 3px;
+    margin: 16px 0;
+  }
+  .wave-bar {
+    flex: 1; background: var(--border);
+    border-radius: 2px;
+    transition: all 0.1s;
+    animation: waveAnim var(--dur, 0.6s) ease-in-out infinite alternate;
+    min-height: 4px;
+  }
+  @keyframes waveAnim {
+    from { height: 4px; }
+    to { height: var(--h, 30px); }
+  }
+  .waveform.ai-speaking .wave-bar { background: var(--accent); }
+  .waveform.user-speaking .wave-bar { background: var(--accent3); }
+  .waveform.barge-in .wave-bar { background: var(--red); animation: none; height: 4px; }
+  .vad-meter {
+    height: 6px; background: var(--border); border-radius: 3px;
+    overflow: hidden; margin: 8px 0;
+  }
+  .vad-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent3), var(--warn));
+    transition: width 0.1s;
+    animation: vadPulse 2s ease-in-out infinite;
+  }
+  @keyframes vadPulse {
+    0% { width: 5%; } 30% { width: 15%; } 60% { width: 65%; } 80% { width: 88%; } 100% { width: 5%; }
+  }
+
+  /* STATE MACHINE */
+  .state-machine {
+    display: flex; flex-wrap: wrap;
+    gap: 12px; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .state-node {
+    padding: 12px 20px;
+    border-radius: 6px;
+    border: 2px solid;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .state-node:hover { transform: scale(1.05); }
+  .state-idle { border-color: var(--muted); color: var(--muted); }
+  .state-idle.active { border-color: #fff; color: #fff; background: rgba(255,255,255,0.05); box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+  .state-listening { border-color: var(--accent3); color: var(--accent3); }
+  .state-listening.active { background: rgba(16,185,129,0.1); box-shadow: 0 0 20px rgba(16,185,129,0.2); animation: pulseState 1s ease-in-out infinite; }
+  .state-processing { border-color: var(--warn); color: var(--warn); }
+  .state-processing.active { background: rgba(245,158,11,0.1); box-shadow: 0 0 20px rgba(245,158,11,0.2); }
+  .state-speaking { border-color: var(--accent); color: var(--accent); }
+  .state-speaking.active { background: rgba(0,212,255,0.1); box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+  .state-bargein { border-color: var(--red); color: var(--red); }
+  .state-bargein.active { background: rgba(239,68,68,0.1); box-shadow: 0 0 20px rgba(239,68,68,0.2); animation: pulseState 0.5s ease-in-out infinite; }
+  @keyframes pulseState { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+  .state-arrow { color: var(--muted); font-size: 18px; }
+
+  /* METRICS */
+  .metric-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: var(--metric-color, var(--accent));
+    opacity: 0.6;
+  }
+  .metric-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px; font-weight: 800;
+    color: var(--metric-color, var(--accent));
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+  .metric-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .metric-sub { color: var(--accent3); font-size: 11px; margin-top: 6px; }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: #020609;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    font-size: 12px; line-height: 1.7;
+    overflow-x: auto;
+    position: relative;
+  }
+  .code-block .code-lang {
+    position: absolute; top: 10px; right: 14px;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .kw { color: #569cd6; }
+  .fn { color: #dcdcaa; }
+  .str { color: #ce9178; }
+  .cm { color: #608b4e; }
+  .num { color: #b5cea8; }
+  .type { color: #4ec9b0; }
+  .prop { color: #9cdcfe; }
+
+  /* JITTER BUFFER VIZ */
+  .jitter-viz {
+    display: flex; align-items: flex-end;
+    gap: 6px; height: 80px;
+    padding: 0 4px;
+  }
+  .jitter-chunk {
+    flex: 1; border-radius: 3px 3px 0 0;
+    position: relative;
+    animation: jitterFill 2.4s ease-in-out infinite;
+    animation-delay: var(--jd, 0s);
+  }
+  @keyframes jitterFill {
+    0%,100% { opacity: 0.3; height: 20%; }
+    50% { opacity: 1; height: 85%; }
+  }
+  .jitter-chunk.buffered { background: var(--accent); }
+  .jitter-chunk.playback { background: var(--accent3); }
+  .jitter-chunk.empty { background: var(--border); opacity: 1; animation: none; height: 15%; }
+
+  /* FLUTTER / SWIFT SPLIT */
+  .platform-split {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .platform-card {
+    border-radius: 8px;
+    padding: 24px;
+    border: 1px solid var(--border);
+  }
+  .platform-flutter { background: linear-gradient(135deg, rgba(2,25,36,1), rgba(0,212,255,0.05)); border-color: rgba(0,212,255,0.2); }
+  .platform-swift { background: linear-gradient(135deg, rgba(20,8,36,1), rgba(124,58,237,0.05)); border-color: rgba(124,58,237,0.2); }
+  .platform-icon {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .flutter-icon { color: var(--accent); }
+  .swift-icon { color: #a78bfa; }
+  .platform-resp { list-style: none; }
+  .platform-resp li {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .platform-resp li:last-child { border-bottom: none; }
+  .platform-resp li::before {
+    content: '→';
+    color: var(--accent); font-size: 10px;
+    flex-shrink: 0;
+  }
+  .platform-swift .platform-resp li::before { color: #a78bfa; }
+
+  /* AUDIO CONFIG */
+  .config-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .config-table th {
+    text-align: left; padding: 10px 16px;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+  .config-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(26,45,66,0.5);
+    font-size: 12px;
+  }
+  .config-table tr:hover td { background: rgba(0,212,255,0.03); }
+  .val-highlight {
+    font-weight: 600; color: var(--accent);
+  }
+  .val-playback { color: #a78bfa; font-weight: 600; }
+
+  /* BUTTONS */
+  .demo-btn {
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--accent);
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .demo-btn:hover { border-color: var(--accent); background: rgba(0,212,255,0.07); }
+  .demo-btn.active { background: rgba(0,212,255,0.12); border-color: var(--accent); }
+
+  /* STATUS DOT */
+  .status-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot-green { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+  .dot-blue { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: blink 1s ease-in-out infinite; }
+  .dot-yellow { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px;
+    text-align: center;
+    color: var(--muted); font-size: 11px;
+    position: relative; z-index: 1;
+    margin-top: 48px;
+  }
+  footer strong { color: var(--accent); }
+
+  /* INTERACTIVE STATES */
+  #bargeBtn { transition: all 0.3s; }
+  #bargeBtn.triggered { border-color: var(--red); color: var(--red); }
+
+  /* Tooltip */
+  .tooltip-container { position: relative; }
+  .tooltip-container:hover .tooltip { opacity: 1; pointer-events: auto; transform: translateY(-4px); }
+  .tooltip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: #1a2d42; border: 1px solid var(--border);
+    border-radius: 4px; padding: 8px 12px;
+    font-size: 11px; color: var(--text);
+    white-space: nowrap; opacity: 0;
+    transition: all 0.2s;
+    pointer-events: none; z-index: 99;
+  }
+  .tooltip::after {
+    content: '';
+    position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1a2d42;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span class="dot"></span>
+    VOICE_AI / MOBILE_ARCH
+  </div>
+  <div class="nav-links">
+    <a href="#architecture">System</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#bargein">Barge-In</a>
+    <a href="#statemachine">States</a>
+    <a href="#config">Config</a>
+    <a href="#perf">Perf</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">
+    <span class="status-dot dot-green"></span>
+    ARCHITECTURE DEMO — FLUTTER + SWIFT NATIVE
+  </div>
+  <h1>Voice AI Mobile<br>Audio Architecture</h1>
+  <p>Real-time voice conversation pipeline. Barge-in detection, persistent mic state, sub-150ms latency — on both Flutter and Swift native iOS.</p>
+  <div class="hero-badges">
+    <span class="badge badge-blue">Azure OpenAI GPT-4o</span>
+    <span class="badge badge-purple">Azure Speech STT/TTS</span>
+    <span class="badge badge-green">Flutter + Dart</span>
+    <span class="badge badge-yellow">Swift AVAudioEngine</span>
+    <span class="badge badge-blue">WebSocket V2</span>
+    <span class="badge badge-green">&lt;150ms Barge-In</span>
+  </div>
+</div>
+
+<!-- SECTION 1: SYSTEM ARCHITECTURE -->
+<div class="container" id="architecture">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 01</span>
+      <h2 class="section-title">System Architecture</h2>
+    </div>
+
+    <div class="arch-diagram">
+      <!-- Mobile Layer -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px;">
+          ▸ MOBILE CLIENT LAYER
+        </div>
+        <div class="arch-row">
+          <div class="arch-box accent-blue tooltip-container">
+            <div class="box-label">Layer</div>
+            <div class="box-name">Flutter Client</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">UI / State / WS</div>
+            <div class="tooltip">Manages WebSocket connection, UI state machine, audio session coordination</div>
+          </div>
+          <div class="arch-box accent-purple tooltip-container">
+            <div class="box-label">Layer</div>
+            <div class="box-name">Swift AVAudioEngine</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">Capture / Playback</div>
+            <div class="tooltip">Low-latency native audio via AVAudioEngine + AudioQueue. PCM capture at 16kHz</div>
+          </div>
+          <div class="arch-box accent-green tooltip-container">
+            <div class="box-label">Feature</div>
+            <div class="box-name">VAD Engine</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">Client-side VAD</div>
+            <div class="tooltip">Continuous Voice Activity Detection runs even during AI playback — enables barge-in</div>
+          </div>
+          <div class="arch-box accent-yellow tooltip-container">
+            <div class="box-label">Feature</div>
+            <div class="box-name">Echo Cancel</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">AEC / NS</div>
+            <div class="tooltip">Acoustic Echo Cancellation prevents VAD from triggering on AI speaker output</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow + messages -->
+      <div style="display: flex; align-items: center; gap: 16px; margin: 16px 0;">
+        <div style="flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border));"></div>
+        <div style="text-align: center; flex-shrink: 0;">
+          <div style="margin-bottom: 6px;">
+            <span class="msg-pill msg-audio">audio_chunk</span>
+            <span class="msg-pill msg-speech">speech_start</span>
+            <span class="msg-pill msg-speech">speech_end</span>
+            <span class="msg-pill msg-barge">barge_in</span>
+            <span class="msg-pill msg-text">text_input</span>
+          </div>
+          <div style="font-size: 10px; color: var(--muted);">WebSocket V2 — Bidirectional Binary/JSON</div>
+          <div style="color: var(--accent); font-size: 18px; margin-top: 4px;">⇅</div>
+        </div>
+        <div style="flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent);"></div>
+      </div>
+
+      <!-- Backend Layer -->
+      <div>
+        <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px;">
+          ▸ AZURE BACKEND — FULLY OPERATIONAL
+        </div>
+        <div class="arch-row">
+          <div class="arch-box accent-blue tooltip-container">
+            <div class="box-label">Gateway</div>
+            <div class="box-name">WebSocket Orchestrator</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">Node.js</div>
+            <div class="tooltip">Manages session state, routes audio to STT, receives LLM text, streams TTS back</div>
+          </div>
+          <div class="arch-box accent-purple tooltip-container">
+            <div class="box-label">AI</div>
+            <div class="box-name">Azure Speech STT</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">Streaming recognition</div>
+            <div class="tooltip">PushAudioInputStream — streaming PCM → partial transcripts</div>
+          </div>
+          <div class="arch-box accent-green tooltip-container">
+            <div class="box-label">AI</div>
+            <div class="box-name">Azure OpenAI</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">GPT-4o streaming</div>
+            <div class="tooltip">Receives transcript, generates response token by token for low TTFT</div>
+          </div>
+          <div class="arch-box accent-yellow tooltip-container">
+            <div class="box-label">AI</div>
+            <div class="box-name">Azure TTS</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">WebSocket V2</div>
+            <div class="tooltip">Streams 24kHz 16-bit PCM audio chunks back to mobile client</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 2: AUDIO PIPELINE -->
+<div class="container" id="pipeline">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 02</span>
+      <h2 class="section-title">Mobile Audio Pipeline</h2>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-title">Full Conversation Flow — Timing Sequence</div>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-num">01</div>
+          <div class="step-label">Mic Capture</div>
+          <div class="step-detail">AVAudioEngine tap / flutter_sound input stream</div>
+          <div class="step-timing">16kHz · mono</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">02</div>
+          <div class="step-label">PCM Encode</div>
+          <div class="step-detail">16-bit signed int, chunked at 100ms</div>
+          <div class="step-timing">1600 samples</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">03</div>
+          <div class="step-label">WS Stream</div>
+          <div class="step-detail">audio_chunk binary frames over WebSocket</div>
+          <div class="step-timing">&lt;5ms send</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">04</div>
+          <div class="step-label">STT Recog</div>
+          <div class="step-detail">Azure streaming speech recognition</div>
+          <div class="step-timing">~200ms P95</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">05</div>
+          <div class="step-label">LLM Gen</div>
+          <div class="step-detail">GPT-4o streaming token generation</div>
+          <div class="step-timing">TTFT ~400ms</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">06</div>
+          <div class="step-label">TTS Stream</div>
+          <div class="step-detail">Azure TTS → 24kHz PCM chunks</div>
+          <div class="step-timing">2400 samples</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">07</div>
+          <div class="step-label">Jitter Buffer</div>
+          <div class="step-detail">200ms buffer accumulate before play</div>
+          <div class="step-timing">200ms target</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">08</div>
+          <div class="step-label">Playback</div>
+          <div class="step-detail">AudioQueue / AVAudioPlayer smooth output</div>
+          <div class="step-timing">24kHz · mono</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Jitter Buffer — Playback Smoothing</div>
+        <p style="color:var(--muted); font-size:12px; margin-bottom:16px;">
+          Streaming TTS arrives in variable-size chunks over WebSocket. Without buffering, audio stutters when network jitter causes late arrivals. The 200ms jitter buffer pre-fills before initiating playback.
+        </p>
+        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:10px; color:var(--muted);">
+          <span><span class="status-dot dot-blue"></span> Buffering</span>
+          <span><span class="status-dot dot-green"></span> Playing</span>
+          <span style="opacity:0.5;">■ Empty slot</span>
+        </div>
+        <div class="jitter-viz">
+          <div class="jitter-chunk buffered" style="--jd:0s;"></div>
+          <div class="jitter-chunk buffered" style="--jd:0.2s;"></div>
+          <div class="jitter-chunk buffered" style="--jd:0.4s;"></div>
+          <div class="jitter-chunk buffered" style="--jd:0.6s;"></div>
+          <div class="jitter-chunk playback" style="--jd:0.8s;"></div>
+          <div class="jitter-chunk playback" style="--jd:1.0s;"></div>
+          <div class="jitter-chunk playback" style="--jd:1.2s;"></div>
+          <div class="jitter-chunk playback" style="--jd:1.4s;"></div>
+          <div class="jitter-chunk playback" style="--jd:1.6s;"></div>
+          <div class="jitter-chunk buffered" style="--jd:1.8s;"></div>
+          <div class="jitter-chunk empty"></div>
+          <div class="jitter-chunk empty"></div>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px;">200ms = ~5 chunks @ 100ms intervals before playback starts</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Audio Format Reference</div>
+        <table class="config-table">
+          <tr><th>Direction</th><th>Rate</th><th>Depth</th><th>Chunk</th></tr>
+          <tr>
+            <td><span class="status-dot dot-green"></span> Capture</td>
+            <td><span class="val-highlight">16 kHz</span></td>
+            <td>16-bit int</td>
+            <td>1600 samples / 100ms</td>
+          </tr>
+          <tr>
+            <td><span class="status-dot dot-blue"></span> Playback</td>
+            <td><span class="val-playback">24 kHz</span></td>
+            <td>16-bit int</td>
+            <td>2400 samples / 100ms</td>
+          </tr>
+          <tr>
+            <td colspan="4" style="color:var(--muted); font-size:11px; padding-top:12px;">
+              Both mono PCM. Format negotiated at session init via WebSocket handshake.
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 3: BARGE-IN -->
+<div class="container" id="bargein">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 03</span>
+      <h2 class="section-title">Barge-In Detection System</h2>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 20px;">
+      <div class="card">
+        <div class="card-title">Live Demo — Barge-In Interrupt</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+          Simulate AI speaking → user interrupts → instant interrupt.
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+          <button class="demo-btn" id="aiSpeakBtn" onclick="startAISpeaking()">▶ AI Speaking</button>
+          <button class="demo-btn" id="bargeBtn" onclick="triggerBarge()">⚡ Barge-In</button>
+          <button class="demo-btn" onclick="resetDemo()">↺ Reset</button>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10px; color:var(--muted); margin-bottom:6px;">AI AUDIO OUTPUT</div>
+          <div class="waveform" id="aiWave">
+            <div class="wave-bar" style="--h:8px; --dur:0.5s"></div><div class="wave-bar" style="--h:24px; --dur:0.7s"></div><div class="wave-bar" style="--h:18px; --dur:0.4s"></div><div class="wave-bar" style="--h:35px; --dur:0.6s"></div><div class="wave-bar" style="--h:28px; --dur:0.8s"></div><div class="wave-bar" style="--h:42px; --dur:0.5s"></div><div class="wave-bar" style="--h:32px; --dur:0.7s"></div><div class="wave-bar" style="--h:20px; --dur:0.6s"></div><div class="wave-bar" style="--h:38px; --dur:0.4s"></div><div class="wave-bar" style="--h:15px; --dur:0.9s"></div><div class="wave-bar" style="--h:28px; --dur:0.5s"></div><div class="wave-bar" style="--h:44px; --dur:0.7s"></div><div class="wave-bar" style="--h:22px; --dur:0.6s"></div><div class="wave-bar" style="--h:36px; --dur:0.8s"></div><div class="wave-bar" style="--h:10px; --dur:0.4s"></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <div style="font-size:10px; color:var(--muted);">VAD SIGNAL LEVEL</div>
+            <div style="font-size:10px; color:var(--accent3);" id="vadLabel">— idle —</div>
+          </div>
+          <div class="vad-meter"><div class="vad-fill" id="vadFill" style="width:5%"></div></div>
+        </div>
+
+        <div id="bargeStatus" style="font-size:11px; color:var(--muted); padding:10px; background:var(--surface2); border-radius:4px; border:1px solid var(--border);">
+          <span class="status-dot dot-green"></span> Status: Idle — awaiting input
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Barge-In Logic — Step by Step</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:50%; border:1px solid var(--accent3); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--accent3); flex-shrink:0;">1</div>
+            <div>
+              <div style="font-size:12px; color:#fff; margin-bottom:3px;">Continuous VAD During Playback</div>
+              <div style="font-size:11px; color:var(--muted);">VAD runs on microphone input at all times — even while AI audio is playing. AEC removes speaker signal before VAD analysis.</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:50%; border:1px solid var(--warn); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--warn); flex-shrink:0;">2</div>
+            <div>
+              <div style="font-size:12px; color:#fff; margin-bottom:3px;">VAD Threshold Crossed</div>
+              <div style="font-size:11px; color:var(--muted);">Energy + zero-crossing rate exceeds threshold. Minimum 80ms of sustained speech to avoid false positives from coughs or clicks.</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:50%; border:1px solid var(--red); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--red); flex-shrink:0;">3</div>
+            <div>
+              <div style="font-size:12px; color:#fff; margin-bottom:3px;">Immediate Interrupt</div>
+              <div style="font-size:11px; color:var(--muted);">Audio playback stops immediately. Playback buffer flushed. AudioQueue reset. barge_in event sent over WebSocket.</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:50%; border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--accent); flex-shrink:0;">4</div>
+            <div>
+              <div style="font-size:12px; color:#fff; margin-bottom:3px;">Resume Listening</div>
+              <div style="font-size:11px; color:var(--muted);">Microphone remains active (persistent state). UI transitions: speaking → barge_in → listening. Backend handles LLM interrupt.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Echo Cancellation Architecture</div>
+      <div class="grid-3">
+        <div style="padding: 16px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border);">
+          <div style="color: var(--red); font-size: 11px; font-weight: 700; margin-bottom: 8px;">⚠ PROBLEM</div>
+          <div style="font-size: 12px; color: var(--muted);">Device speaker plays AI audio → microphone picks it up → VAD falsely triggers → spurious barge_in events</div>
+        </div>
+        <div style="padding: 16px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border);">
+          <div style="color: var(--warn); font-size: 11px; font-weight: 700; margin-bottom: 8px;">⚙ SOLUTION</div>
+          <div style="font-size: 12px; color: var(--muted);">iOS built-in AEC via AVAudioSession + .voiceChat mode. Android via WebRTC AEC API or java AudioEffect. Subtracts known reference signal.</div>
+        </div>
+        <div style="padding: 16px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border);">
+          <div style="color: var(--accent3); font-size: 11px; font-weight: 700; margin-bottom: 8px;">✓ RESULT</div>
+          <div style="font-size: 12px; color: var(--muted);">VAD only reacts to user voice. AI speech at full volume on speaker. Clean barge-in with &lt;150ms latency P95.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 4: PERSISTENT MIC -->
+<div class="container">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 04</span>
+      <h2 class="section-title">Persistent Microphone State</h2>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Mic Lifecycle Management</div>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+          Typical push-to-talk apps stop and restart the mic every turn — causing 200–800ms dead time. Our approach: mic session opens once at conversation start, stays open for the full session.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--surface2); border-radius:4px; border:1px solid var(--border);">
+            <span class="status-dot dot-green"></span>
+            <div>
+              <div style="font-size:11px; color:#fff; font-weight:600;">Session Init → Mic OPEN</div>
+              <div style="font-size:10px; color:var(--muted);">AVAudioSession configured once. AudioEngine starts. Tap installed on input node.</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--surface2); border-radius:4px; border:1px solid var(--border);">
+            <span class="status-dot dot-blue"></span>
+            <div>
+              <div style="font-size:11px; color:#fff; font-weight:600;">AI Speaking → Mic STAYS OPEN</div>
+              <div style="font-size:10px; color:var(--muted);">PCM capture continues. AEC active. VAD monitors. No tap removal.</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--surface2); border-radius:4px; border:1px solid var(--border);">
+            <span class="status-dot dot-yellow"></span>
+            <div>
+              <div style="font-size:11px; color:#fff; font-weight:600;">AI Done → Mic ALREADY READY</div>
+              <div style="font-size:10px; color:var(--muted);">No reactivation needed. User speaks immediately. Zero tap gap.</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--surface2); border-radius:4px; border:1px solid rgba(239,68,68,0.3);">
+            <span class="status-dot dot-red"></span>
+            <div>
+              <div style="font-size:11px; color:#fff; font-weight:600;">Session End → Mic CLOSED</div>
+              <div style="font-size:10px; color:var(--muted);">AudioEngine stops. Session deactivated. Resources released.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Flutter Implementation Snippet</div>
+        <div class="code-block">
+          <div class="code-lang">Dart</div>
+<pre><span class="cm">// Persistent mic — init once, keep alive</span>
+<span class="kw">class</span> <span class="type">VoiceSessionManager</span> {
+  <span class="type">AudioSession</span>? <span class="prop">_session</span>;
+  <span class="kw">bool</span> <span class="prop">_micActive</span> = <span class="kw">false</span>;
+
+  <span class="kw">Future</span>&lt;<span class="kw">void</span>&gt; <span class="fn">initSession</span>() <span class="kw">async</span> {
+    <span class="prop">_session</span> = <span class="kw">await</span> <span class="type">AudioSession</span>.<span class="fn">instance</span>;
+    <span class="kw">await</span> <span class="prop">_session</span>!.<span class="fn">configure</span>(<span class="type">AudioSessionConfiguration</span>(
+      avAudioSessionCategory:
+        <span class="type">AVAudioSessionCategory</span>.playAndRecord,
+      avAudioSessionMode:
+        <span class="type">AVAudioSessionMode</span>.voiceChat, <span class="cm">// AEC</span>
+    ));
+    <span class="kw">await</span> <span class="fn">_startCapture</span>();
+    <span class="prop">_micActive</span> = <span class="kw">true</span>;
+  }
+
+  <span class="cm">// Mic stays open — only mute VAD sending</span>
+  <span class="kw">void</span> <span class="fn">onAISpeaking</span>() =&gt;
+    <span class="prop">_vadSendEnabled</span> = <span class="kw">false</span>; <span class="cm">// capture on</span>
+
+  <span class="kw">void</span> <span class="fn">onAIDone</span>() =&gt;
+    <span class="prop">_vadSendEnabled</span> = <span class="kw">true</span>; <span class="cm">// ready instantly</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 5 + 6: STATE MACHINE -->
+<div class="container" id="statemachine">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 05–06</span>
+      <h2 class="section-title">UI State Machine</h2>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-title">State Transitions — Click to Simulate</div>
+      <div class="state-machine" id="stateMachine">
+        <div class="state-node state-idle active" id="s-idle" onclick="setUIState('idle')">IDLE</div>
+        <div class="state-arrow">→</div>
+        <div class="state-node state-listening" id="s-listening" onclick="setUIState('listening')">LISTENING</div>
+        <div class="state-arrow">→</div>
+        <div class="state-node state-processing" id="s-processing" onclick="setUIState('processing')">PROCESSING</div>
+        <div class="state-arrow">→</div>
+        <div class="state-node state-speaking" id="s-speaking" onclick="setUIState('speaking')">SPEAKING</div>
+        <br style="width:100%">
+        <div class="state-arrow" style="transform:rotate(90deg);">↑</div>
+        <div class="state-node state-bargein" id="s-bargein" onclick="setUIState('bargein')" style="margin:0 auto;">BARGE_IN</div>
+      </div>
+      <div id="stateDesc" style="text-align:center; font-size:12px; color:var(--muted); padding:16px; background:var(--surface2); border-radius:4px; border:1px solid var(--border);">
+        <span class="status-dot dot-green"></span> <strong style="color:#fff;">IDLE</strong> — Conversation not started. WebSocket connected. Mic standby.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">State Transition Rules — Preventing Audio Leaks</div>
+      <div class="grid-2">
+        <div>
+          <table class="config-table">
+            <tr><th>From</th><th>To</th><th>Trigger</th><th>Action</th></tr>
+            <tr><td style="color:var(--muted)">IDLE</td><td style="color:var(--accent3)">LISTENING</td><td>session_start</td><td>Open mic, start VAD</td></tr>
+            <tr><td style="color:var(--accent3)">LISTENING</td><td style="color:var(--warn)">PROCESSING</td><td>speech_end</td><td>Send final transcript</td></tr>
+            <tr><td style="color:var(--warn)">PROCESSING</td><td style="color:var(--accent)">SPEAKING</td><td>tts_start</td><td>Start playback queue</td></tr>
+            <tr><td style="color:var(--accent)">SPEAKING</td><td style="color:var(--red)">BARGE_IN</td><td>vad_trigger</td><td>Flush buffer, send ws</td></tr>
+            <tr><td style="color:var(--red)">BARGE_IN</td><td style="color:var(--accent3)">LISTENING</td><td>immediate</td><td>Mic already active</td></tr>
+            <tr><td style="color:var(--accent)">SPEAKING</td><td style="color:var(--accent3)">LISTENING</td><td>tts_done</td><td>Resume VAD send</td></tr>
+          </table>
+        </div>
+        <div>
+          <div style="padding:16px; background:var(--surface2); border-radius:6px; border:1px solid rgba(239,68,68,0.2);">
+            <div style="color:var(--red); font-size:11px; font-weight:700; margin-bottom:10px;">⚠ AUDIO LEAK SCENARIOS (Must Prevent)</div>
+            <div style="font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:8px;">
+              <div>• <strong style="color:#fff;">Stuck in SPEAKING:</strong> TTS socket closes before tts_done received → implement explicit timeout fallback</div>
+              <div>• <strong style="color:#fff;">PROCESSING loop:</strong> LLM times out → max 10s timeout with fallback to IDLE</div>
+              <div>• <strong style="color:#fff;">Mic not released:</strong> Background audio session conflict → deactivate on app background</div>
+              <div>• <strong style="color:#fff;">Buffer not flushed:</strong> Barge-in with residual queue → synchronous flush before state change</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 7: FLUTTER + SWIFT -->
+<div class="container">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 07</span>
+      <h2 class="section-title">Flutter + Swift Hybrid Architecture</h2>
+    </div>
+
+    <div class="platform-split">
+      <div class="platform-card platform-flutter">
+        <div class="platform-icon flutter-icon">Flutter ↗</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+          Cross-platform layer. Handles UI rendering, state management, WebSocket communication, and orchestration.
+        </div>
+        <ul class="platform-resp">
+          <li>UI state machine (idle/listen/process/speak)</li>
+          <li>WebSocket connection lifecycle management</li>
+          <li>Audio session configuration via audio_session plugin</li>
+          <li>VAD event processing and barge_in dispatch</li>
+          <li>Chat history and conversation UI</li>
+          <li>Cross-platform Android + iOS build target</li>
+        </ul>
+      </div>
+      <div class="platform-card platform-swift">
+        <div class="platform-icon swift-icon">Swift ↗</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+          Native iOS audio layer. Low-latency capture and playback via Apple's core audio APIs.
+        </div>
+        <ul class="platform-resp">
+          <li>AVAudioEngine tap for 16kHz PCM capture</li>
+          <li>AudioQueue for 24kHz PCM playback</li>
+          <li>AVAudioSession .voiceChat mode (AEC)</li>
+          <li>Real-time jitter buffer management</li>
+          <li>Platform channel bridge to Flutter</li>
+          <li>Hardware-level echo cancellation</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="card">
+        <div class="card-title">Why Both Layers?</div>
+        <div class="grid-3">
+          <div style="font-size:12px; color:var(--muted); padding:12px; background:var(--surface2); border-radius:4px;">
+            <strong style="color:#fff; display:block; margin-bottom:6px;">Flutter Alone — Risk</strong>
+            Flutter audio plugins (flutter_sound, record) add buffering overhead. Barge-in latency often 300–500ms. No direct AVAudioEngine access.
+          </div>
+          <div style="font-size:12px; color:var(--muted); padding:12px; background:var(--surface2); border-radius:4px;">
+            <strong style="color:var(--accent3); display:block; margin-bottom:6px;">Hybrid — Optimal</strong>
+            Flutter for UI/state/WS. Swift native for audio I/O. Platform channels pass PCM buffers and events. Best of both worlds.
+          </div>
+          <div style="font-size:12px; color:var(--muted); padding:12px; background:var(--surface2); border-radius:4px;">
+            <strong style="color:#fff; display:block; margin-bottom:6px;">Android Path</strong>
+            Flutter with Oboe via NDK for low-latency capture. WebRTC AEC via AudioEffect API. Same pipeline interface.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider container" style="max-width:1200px;"></div>
+
+<!-- SECTION 8: PERFORMANCE -->
+<div class="container" id="perf">
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">§ 08</span>
+      <h2 class="section-title">Performance Targets</h2>
+    </div>
+
+    <div class="grid-4" style="margin-bottom: 20px;">
+      <div class="metric-card" style="--metric-color: var(--red);">
+        <div class="metric-value">&lt;150</div>
+        <div class="metric-label">Barge-In Latency</div>
+        <div class="metric-sub">ms — P95 target</div>
+      </div>
+      <div class="metric-card" style="--metric-color: var(--accent);">
+        <div class="metric-value">100</div>
+        <div class="metric-label">Chunk Interval</div>
+        <div class="metric-sub">ms — capture + playback</div>
+      </div>
+      <div class="metric-card" style="--metric-color: var(--warn);">
+        <div class="metric-value">200</div>
+        <div class="metric-label">Jitter Buffer</div>
+        <div class="metric-sub">ms — playback pre-fill</div>
+      </div>
+      <div class="metric-card" style="--metric-color: var(--accent3);">
+        <div class="metric-value">0</div>
+        <div class="metric-label">Mic Restarts</div>
+        <div class="metric-sub">per session turn</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Latency Breakdown — Barge-In Path</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:140px; font-size:11px; color:var(--muted); flex-shrink:0;">VAD detection</div>
+          <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+            <div style="width:53%; height:100%; background:var(--accent3); border-radius:4px;"></div>
+          </div>
+          <div style="width:50px; font-size:11px; color:var(--accent3); text-align:right;">~80ms</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:140px; font-size:11px; color:var(--muted); flex-shrink:0;">Buffer flush</div>
+          <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+            <div style="width:13%; height:100%; background:var(--warn); border-radius:4px;"></div>
+          </div>
+          <div style="width:50px; font-size:11px; color:var(--warn); text-align:right;">~20ms</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:140px; font-size:11px; color:var(--muted); flex-shrink:0;">WS message send</div>
+          <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+            <div style="width:33%; height:100%; background:var(--accent); border-radius:4px;"></div>
+          </div>
+          <div style="width:50px; font-size:11px; color:var(--accent); text-align:right;">~50ms</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:140px; font-size:11px; color:#fff; flex-shrink:0; font-weight:600;">Total P95</div>
+          <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+            <div style="width:99%; height:100%; background:linear-gradient(90deg, var(--accent3), var(--warn), var(--accent)); border-radius:4px;"></div>
+          </div>
+          <div style="width:50px; font-size:11px; color:#fff; text-align:right; font-weight:600;">&lt;150ms</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <strong>flutter-ai-voice-chat-audio-architecture-demo</strong><br>
+  <span style="margin-top:8px; display:block;">Mobile audio pipeline · Barge-in detection · Persistent mic state · Flutter + Swift Native</span>
+  <div style="margin-top:16px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+    <span class="badge badge-blue">Azure OpenAI</span>
+    <span class="badge badge-purple">Azure Speech Services</span>
+    <span class="badge badge-green">WebSocket V2</span>
+    <span class="badge badge-yellow">AVAudioEngine</span>
+  </div>
+</footer>
+
+<script>
+  // State machine
+  const stateDescriptions = {
+    idle: '<span class="status-dot dot-green"></span> <strong style="color:#fff;">IDLE</strong> — Conversation not started. WebSocket connected. Mic in standby.',
+    listening: '<span class="status-dot dot-green" style="animation:blink 1s infinite"></span> <strong style="color:var(--accent3)">LISTENING</strong> — Microphone active. VAD monitoring. Streaming audio_chunk to backend.',
+    processing: '<span class="status-dot dot-yellow"></span> <strong style="color:var(--warn)">PROCESSING</strong> — speech_end sent. Awaiting GPT-4o response. STT transcript complete.',
+    speaking: '<span class="status-dot dot-blue"></span> <strong style="color:var(--accent)">SPEAKING</strong> — AI TTS audio playing. VAD still running for barge-in detection. Jitter buffer active.',
+    bargein: '<span class="status-dot dot-red"></span> <strong style="color:var(--red)">BARGE_IN</strong> — User interrupted! Playback stopped. Buffer flushed. barge_in sent via WebSocket. → returning to LISTENING.'
+  };
+
+  function setUIState(state) {
+    document.querySelectorAll('.state-node').forEach(n => n.classList.remove('active'));
+    document.getElementById('s-' + state).classList.add('active');
+    document.getElementById('stateDesc').innerHTML = stateDescriptions[state];
+    if (state === 'bargein') {
+      setTimeout(() => setUIState('listening'), 1500);
+    }
+  }
+
+  // Barge-in demo
+  let aiInterval, vadInterval, bargeActive = false;
+
+  function startAISpeaking() {
+    if (bargeActive) return;
+    const wave = document.getElementById('aiWave');
+    wave.classList.add('ai-speaking');
+    document.getElementById('bargeStatus').innerHTML = '<span class="status-dot dot-blue"></span> AI speaking... VAD monitoring for barge-in';
+    document.getElementById('vadLabel').textContent = 'monitoring';
+    document.getElementById('aiSpeakBtn').classList.add('active');
+    // Animate VAD at low level
+    let v = 5;
+    clearInterval(vadInterval);
+    vadInterval = setInterval(() => {
+      v = 5 + Math.random() * 15;
+      document.getElementById('vadFill').style.width = v + '%';
+    }, 120);
+  }
+
+  function triggerBarge() {
+    if (bargeActive) return;
+    bargeActive = true;
+    clearInterval(vadInterval);
+    const wave = document.getElementById('aiWave');
+    wave.classList.remove('ai-speaking');
+    wave.classList.add('barge-in');
+    document.getElementById('bargeBtn').classList.add('triggered');
+    document.getElementById('vadLabel').textContent = '⚡ TRIGGERED';
+    document.getElementById('vadFill').style.width = '95%';
+    document.getElementById('vadFill').style.background = 'var(--red)';
+    document.getElementById('bargeStatus').innerHTML = '<span class="status-dot dot-red"></span> <strong>BARGE-IN!</strong> Playback stopped · Buffer flushed · barge_in → WebSocket';
+    setTimeout(() => {
+      wave.classList.remove('barge-in');
+      wave.classList.add('user-speaking');
+      document.getElementById('bargeStatus').innerHTML = '<span class="status-dot dot-green"></span> <strong>LISTENING</strong> — User speaking. Mic persistent. No re-tap needed.';
+      document.getElementById('vadLabel').textContent = 'user speech';
+      let v2 = 0;
+      vadInterval = setInterval(() => {
+        v2 = 40 + Math.random() * 50;
+        document.getElementById('vadFill').style.width = v2 + '%';
+        document.getElementById('vadFill').style.background = 'linear-gradient(90deg, var(--accent3), var(--warn))';
+      }, 100);
+    }, 400);
+  }
+
+  function resetDemo() {
+    clearInterval(vadInterval);
+    bargeActive = false;
+    const wave = document.getElementById('aiWave');
+    wave.className = 'waveform';
+    document.getElementById('aiSpeakBtn').classList.remove('active');
+    document.getElementById('bargeBtn').classList.remove('triggered');
+    document.getElementById('vadFill').style.width = '5%';
+    document.getElementById('vadFill').style.background = 'linear-gradient(90deg, var(--accent3), var(--warn))';
+    document.getElementById('vadLabel').textContent = '— idle —';
+    document.getElementById('bargeStatus').innerHTML = '<span class="status-dot dot-green"></span> Status: Idle — awaiting input';
+  }
+</script>
+</body>
+</html>
