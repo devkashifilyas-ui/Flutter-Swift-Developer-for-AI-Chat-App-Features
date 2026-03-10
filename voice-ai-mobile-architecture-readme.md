@@ -194,10 +194,3 @@ No installation or dependencies are required.
 This demo was created to demonstrate the architecture of a real-time voice AI mobile client and explain how conversational audio systems can be implemented on mobile platforms.
 
 It focuses on engineering architecture and audio system design rather than UI prototyping.
-
----
-
-# Author
-
-Kashif Ilyas  
-Mobile & Full Stack Engineer
